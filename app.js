@@ -127,9 +127,10 @@ function _outputRecentMessage(message) {
   let session = require('./session.json');
   let story = session[message.guild.id].storySession.story;
   let lastMessage = story[story.length - 1];
-  if (lastMessage && lastMessage.type === 'output') {
+  if (lastMessage && lastMessage.type === 'output' && lastMessage.value) {
     message.channel.send(lastMessage.value);
   }
+  else message.channel.send('Unable to parse response');
 }
 
 function _initiateStory(message) {
