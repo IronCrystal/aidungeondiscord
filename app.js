@@ -32,6 +32,14 @@ bot.on('message', message => {
       if (_correctChannel(message)) _initiateStory(message);
       else message.channel.send('This is not the correct channel');
     }
+    else if (message && message.content && message.content === '!liststories') {
+      if (_correctChannel(message)) _listStories(message);
+      else message.channel.send('This is not the correct channel');
+    }
+    else if (message && message.content && message.content.startsWith('!getstory')) {
+      if (_correctChannel(message)) _getStory(message);
+      else message.channel.send('This is not the correct channel');
+    }
     else if (_correctChannel(message) && _isInitiatingStory(message)) {
       _setStoryVariable(message);
     }
@@ -41,11 +49,56 @@ bot.on('message', message => {
   }
 });
 
+function _getStory(message) {
+  let storyId;
+
+  if (message && message.content && message.content.split(' ').length > 1) {
+    let storyId = message.content.split(' ')[1];
+    api.getStory(storyId, function(err, body) {
+      if (err) console.error(err);
+      else {
+        if (body && body.story) {
+          let output = 'Story: ' + storyId + '\n';
+          body.story.forEach(function(row) {
+            if (row && row.type === 'output') {
+              output += row.value + '\n';
+            }
+            else if (row && row.type === 'input') {
+              output += '> ' + row.value + '\n';
+            }
+          });
+          message.author.send(output);
+        }
+        else message.channel.send('Unable to find story');
+      }
+    });
+  }
+  else message.channel.send('Syntaxt: `!getstory <id>`');
+}
+
+function _listStories(message) {
+  let session = require('./session.json');
+  if (session && session[message.guild.id] && session[message.guild.id].publicStoryIds) {
+    let publicStoryIds = session[message.guild.id].publicStoryIds || [];
+    publicStoryIds.forEach(function(obj) {
+      let outputEmbed = new Discord.RichEmbed().setColor('#0099ff');
+      outputEmbed.addField('ID', obj.publicStoryId);
+      outputEmbed.addField('Date', obj.createdAt);
+      outputEmbed.addField('Story', obj.storyStart.substring(0, 200) + '...');
+      message.author.send(outputEmbed);
+    });
+    message.channel.send('Sent a list of stories in PM. To get a full story, type `!getstory <id>`');
+  }
+  else message.channel.send('No stories found');
+}
+
 function _input(message) {
   let session = require('./session.json');
   if (session && session[message.guild.id] && session[message.guild.id].storySession && session[message.guild.id].storySession.id) {
     let storyId = session[message.guild.id].storySession.id
-    api.input(storyId, message.content, function(err, story) {
+    let text = message.content;
+    if (text === '...') text = '';
+    api.input(storyId, text, function(err, story) {
       if (err) console.error(err);
       else {
         session[message.guild.id].storySession.story = story;
@@ -104,6 +157,9 @@ function _setStoryVariable(message) {
       else {
         session[message.guild.id].storySession = storySession;
         session[message.guild.id].waitingOnInputs = true;
+        let publicStoryIds = session[message.guild.id].publicStoryIds || [];
+        publicStoryIds.push({publicStoryId: storySession.storyPublicId, createdAt: storySession.createdAt, storyStart: storySession.story[0].value});
+        session[message.guild.id].publicStoryIds = publicStoryIds;
         _saveSession(session);
         _outputRecentMessage(message);
       }
