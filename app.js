@@ -1,4 +1,5 @@
 var api = require('./api.js');
+var config = require('./config.json');
 
 var fs = require('fs');
 
@@ -54,7 +55,7 @@ function _getStory(message) {
 
   if (message && message.content && message.content.split(' ').length > 1) {
     let storyId = message.content.split(' ')[1];
-    api.getStory(storyId, function(err, body) {
+    api.getStory(storyId, config, function(err, body) {
       if (err) console.error(err);
       else {
         if (body && body.story) {
@@ -82,7 +83,7 @@ function _listStories(message) {
     let publicStoryIds = session[message.guild.id].publicStoryIds || [];
     publicStoryIds.forEach(function(obj) {
       let outputEmbed = new Discord.RichEmbed().setColor('#0099ff');
-      outputEmbed.addField('ID', obj.publicStoryId);
+      outputEmbed.addField('ID', obj.publicId);
       outputEmbed.addField('Date', obj.createdAt);
       outputEmbed.addField('Story', obj.storyStart.substring(0, 200) + '...');
       message.author.send(outputEmbed);
@@ -98,7 +99,7 @@ function _input(message) {
     let storyId = session[message.guild.id].storySession.id
     let text = message.content;
     if (text === '...') text = '';
-    api.input(storyId, text, function(err, story) {
+    api.input(storyId, text, config, function(err, story) {
       if (err) console.error(err);
       else {
         session[message.guild.id].storySession.story = story;
@@ -152,13 +153,13 @@ function _setStoryVariable(message) {
     session[message.guild.id].initiatingStory = false;
     _saveSession(session);
     message.channel.send('Generating story...');
-    api.startSession(session[message.guild.id].storyType, session[message.guild.id].characterType, session[message.guild.id].name, function(err, storySession) {
+    api.startSession(session[message.guild.id].storyType, session[message.guild.id].characterType, session[message.guild.id].name, config, function(err, storySession) {
       if (err) console.error(err);
       else {
         session[message.guild.id].storySession = storySession;
         session[message.guild.id].waitingOnInputs = true;
         let publicStoryIds = session[message.guild.id].publicStoryIds || [];
-        publicStoryIds.push({publicStoryId: storySession.storyPublicId, createdAt: storySession.createdAt, storyStart: storySession.story[0].value});
+        publicStoryIds.push({publicId: storySession.publicId, createdAt: storySession.createdAt, storyStart: storySession.story[0].value});
         session[message.guild.id].publicStoryIds = publicStoryIds;
         _saveSession(session);
         _outputRecentMessage(message);
